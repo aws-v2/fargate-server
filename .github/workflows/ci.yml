@@ -1,0 +1,26 @@
+name: CI - Run Tests
+
+on:
+  push:
+    branches: [ "dev" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache:maven: true
+
+    - name: Run Tests
+      # Using mvn test will run both unit and integration tests.
+      # Integration tests using Testcontainers work out-of-the-box on ubuntu-latest.
+      run: mvn test
