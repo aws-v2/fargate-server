@@ -22,5 +22,5 @@ jobs:
 
     - name: Run Tests
       # Using mvn test will run both unit and integration tests.
-      # Integration tests using Testcontainers work out-of-the-box on ubuntu-latest.
+      # Integration tests using Testcontainers work out-of-the-box on ubuntu-latest. ooh yes
       run: mvn test
