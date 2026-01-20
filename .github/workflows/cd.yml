@@ -26,5 +26,3 @@ jobs:
         context: .
         push: true
         tags: qarani/fargate-server:latest
-        build-args: |
-          SPRING_PROFILES_ACTIVE=prod
