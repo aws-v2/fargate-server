@@ -1,0 +1,21 @@
+# Binaries
+main
+*.exe
+mini-fargate.exe
+
+# Secrets
+
+
+# Go
+vendor/
+*.test
+*.out
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
