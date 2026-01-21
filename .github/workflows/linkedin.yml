@@ -1,0 +1,37 @@
+name: Post LinkedIn Update
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  post_linkedin:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run tests
+        run: |
+          # Run your usual tests
+          npm ci && npm test
+
+      - name: Get diff
+        id: diff
+        run: |
+          PREV_COMMIT=$(git rev-parse HEAD~1)
+          git diff $PREV_COMMIT HEAD > diff.txt
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          cat diff.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Call centralized LinkedIn Poster Service
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+        run: |
+          curl -X POST https://linkedin-poster.example.com/post \
+            -H "Content-Type: application/json" \
+            -d "{\"repo\":\"${GITHUB_REPOSITORY}\", \"diff\":\"${{ steps.diff.outputs.diff }}\"}"
