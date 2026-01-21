@@ -4,6 +4,8 @@ main
 mini-fargate.exe
 
 # Secrets
+.env
+.fargate-server-prod.env
 
 
 # Go
