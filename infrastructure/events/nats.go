@@ -13,8 +13,13 @@ type NATSHandler struct {
 	nc *nats.Conn
 }
 
-func NewNATSHandler(url string) (*NATSHandler, error) {
-	nc, err := nats.Connect(url)
+func NewNATSHandler(url, username, password string) (*NATSHandler, error) {
+	opts := []nats.Option{}
+	if username != "" && password != "" {
+		opts = append(opts, nats.UserInfo(username, password))
+	}
+
+	nc, err := nats.Connect(url, opts...)
 	if err != nil {
 		return nil, err
 	}

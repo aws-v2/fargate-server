@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nats-io/nats.go"
+	// "github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 )
 
@@ -186,7 +186,11 @@ func main() {
 	}
 
 	// Initialize NATS Handler
-	natsHandler, err := events.NewNATSHandler(getEnv("NATS_URL", nats.DefaultURL))
+	natsURL := getEnv("NATS_URL", "nats://localhost:4222")
+	natsUser := getEnv("NATS_USERNAME", "auth-server")
+	natsPass := getEnv("NATS_PASSWORD", "auth-secret")
+
+	natsHandler, err := events.NewNATSHandler(natsURL, natsUser, natsPass)
 	if err != nil {
 		logger.Log.Fatal("Failed to initialize NATS", zap.Error(err))
 	}

@@ -137,6 +137,25 @@ func RunLambdaContainer(ctx context.Context, inv models.NATSInvocation, callback
 	// 1. If explicit command is provided in invocation, use it (Generic Support for Java, Python, Rust, etc.)
 	if len(inv.Execution.Command) > 0 {
 		cmd = inv.Execution.Command
+		if inv.Execution.Kind == "binary" {
+			// Even with explicit command, if it's a binary with path, we need to ensure chmod +x
+			// This is critical for Windows mounts.
+			binPath := cmd[0]
+			args := ""
+			if len(cmd) > 1 {
+				args = " " + strings.Join(cmd[1:], " ")
+			}
+			// Robust check: if binPath is relative (like ./handler), and we are in a directory mount, it works.
+			// If it's a file mount, we need to copy /var/task itself.
+			cmd = []string{"sh", "-c", fmt.Sprintf(`
+				if [ -d /var/task ]; then
+					cp /var/task/%s /tmp/executor
+				else
+					cp /var/task /tmp/executor
+				fi
+				chmod +x /tmp/executor
+				/tmp/executor%s`, strings.TrimPrefix(binPath, "./"), args)}
+		}
 		logger.Log.Info("Using explicit command", zap.String("task_id", inv.TaskID), zap.Strings("cmd", cmd))
 	} else {
 		// 2. Legacy/Fallback Logic: Infer based on Kind or Image
@@ -182,9 +201,10 @@ func RunLambdaContainer(ctx context.Context, inv models.NATSInvocation, callback
 	}
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Image: imageName,
-		Env:   env,
-		Cmd:   cmd,
+		Image:      imageName,
+		Env:        env,
+		Cmd:        cmd,
+		WorkingDir: "/var/task",
 	}, hostConfig, &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{},
 	}, nil, "lambda-"+inv.TaskID)
