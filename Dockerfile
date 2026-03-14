@@ -36,7 +36,7 @@ COPY --from=builder /app/mini-fargate .
 USER appuser
 
 # Expose the port
-EXPOSE 8099
+EXPOSE 8086
 
 # Run the binary
 CMD ["./mini-fargate"]

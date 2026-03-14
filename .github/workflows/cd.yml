@@ -42,4 +42,4 @@ jobs:
           docker pull qarani/fargate-server:latest
           docker stop fargate-server || true
           docker rm fargate-server || true
-          docker run -d --name fargate-server --network mini-aws-network --env-file /home/runner/.fargate-server-prod.env -p 8099:8099 qarani/fargate-server:latest
+          docker run -d --name fargate-server --network mini-aws-network --env-file /home/runner/.fargate-server-prod.env -p 8086:8086 qarani/fargate-server:latest

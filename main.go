@@ -44,9 +44,9 @@ func getEurekaConfig() *EurekaConfig {
 		AppName:           getEnv("EUREKA_APP_NAME", "FARGATE-SERVICE"),
 		HostName:          getEnv("EUREKA_HOSTNAME", "localhost"),
 		IPAddr:            getEnv("EUREKA_IP_ADDR", "127.0.0.1"),
-		Port:              getEnvInt("SERVER_PORT", 8099),
+		Port:              getEnvInt("SERVER_PORT", 8086),
 		VipAddress:        getEnv("EUREKA_VIP_ADDRESS", "fargate-service"),
-		InstanceID:        getEnv("EUREKA_INSTANCE_ID", "fargate-service:8099"),
+		InstanceID:        getEnv("EUREKA_INSTANCE_ID", "fargate-service:8086"),
 		HeartbeatInterval: getEnvDuration("EUREKA_HEARTBEAT_INTERVAL", 30*time.Second),
 	}
 }
@@ -226,7 +226,7 @@ func main() {
 
 	// Graceful shutdown
 	srv := &http.Server{
-		Addr:    ":8099",
+		Addr:    ":8086",
 		Handler: r,
 	}
 
