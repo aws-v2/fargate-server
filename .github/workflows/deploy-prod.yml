@@ -1,0 +1,62 @@
+name: Prod deployment.
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: qarani/fargate-server:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy Env File to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: ".fargate-server-prod.env"
+          target: "/home/${{ secrets.EC2_USERNAME }}/"
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "${{ secrets.NETWORK_SERVER_PROD_ENV }}" > /home/${{ secrets.EC2_USERNAME }}/.fargate-server-prod.env
+            docker pull qarani/fargate-server:latest
+            docker stop fargate-server || true
+            docker rm fargate-server || true
+            docker network create mini-aws-network || true
+            docker run -d --name fargate-server \
+              --network mini-aws-network \
+              --env-file /home/${{ secrets.EC2_USERNAME }}/.fargate-server-prod.env \
+              -p 8086:8086 \
+              -e SERVER_PORT=8086 \
+              qarani/fargate-server:latest
