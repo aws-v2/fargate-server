@@ -1,17 +1,19 @@
 package logger
 
 import (
-	"go.uber.org/zap"
+	"log/slog"
+	"os"
 )
 
-var Log *zap.Logger
+var Log *slog.Logger
 
-func Init() {
-	var err error
-	config := zap.NewProductionConfig()
-	config.OutputPaths = []string{"stdout"}
-	Log, err = config.Build()
-	if err != nil {
-		panic(err)
+func Init(profile string) {
+	opts := &slog.HandlerOptions{
+		Level: slog.LevelInfo,
 	}
+	handler := slog.NewJSONHandler(os.Stdout, opts).WithAttrs([]slog.Attr{
+		slog.String("profile", profile),
+	})
+	Log = slog.New(handler)
+	slog.SetDefault(Log)
 }

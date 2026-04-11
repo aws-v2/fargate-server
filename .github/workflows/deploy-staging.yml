@@ -51,5 +51,10 @@ jobs:
             docker run -d --name fargate-server-staging \
               --network aws_backend \
               -p 8086:8086 \
+              -e APP_PROFILE=staging \
               -e SERVER_PORT=8086 \
+              -e NATS_URL=nats://nats-staging:4222 \
+              -e NATS_USERNAME=auth-server \
+              -e NATS_PASSWORD=auth-secret \
+              -e EUREKA_SERVER_URL=http://eureka-staging:8761/eureka \
               qarani/fargate-server:staging

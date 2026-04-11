@@ -6,23 +6,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"mini-fargate/infrastructure/config"
 	"mini-fargate/infrastructure/docker"
 	"mini-fargate/infrastructure/events"
 	"mini-fargate/infrastructure/models"
 	"mini-fargate/logger"
 	"mini-fargate/transport"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	// "github.com/nats-io/nats.go"
-	"go.uber.org/zap"
+	"github.com/joho/godotenv"
 )
 
 // EurekaConfig holds Eureka registration configuration
@@ -102,7 +104,7 @@ func registerWithEureka(config *EurekaConfig) error {
 		return fmt.Errorf("eureka registration failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	log.Printf("✅ Successfully registered with Eureka server at %s", url)
+	logger.Log.Info("Successfully registered with Eureka server", slog.String("url", url))
 	return nil
 }
 
@@ -117,21 +119,21 @@ func sendHeartbeat(config *EurekaConfig) {
 	for range ticker.C {
 		req, err := http.NewRequest("PUT", url, nil)
 		if err != nil {
-			log.Printf("❌ Failed to create heartbeat request: %v", err)
+			logger.Log.Error("Failed to create heartbeat request", slog.Any("error", err))
 			continue
 		}
 
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Printf("❌ Failed to send heartbeat to Eureka: %v", err)
+			logger.Log.Error("Failed to send heartbeat to Eureka", slog.Any("error", err))
 			continue
 		}
 
 		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 			body, _ := io.ReadAll(resp.Body)
-			log.Printf("⚠️  Heartbeat failed with status %d: %s", resp.StatusCode, string(body))
+			logger.Log.Warn("Heartbeat failed", slog.Int("status", resp.StatusCode), slog.String("body", string(body)))
 		} else {
-			log.Printf("💓 Heartbeat sent successfully to Eureka")
+			logger.Log.Debug("Heartbeat sent successfully to Eureka")
 		}
 
 		resp.Body.Close()
@@ -158,48 +160,86 @@ func deregisterFromEureka(config *EurekaConfig) error {
 		return fmt.Errorf("deregistration failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	log.Printf("✅ Successfully deregistered from Eureka server")
+	logger.Log.Info("Successfully deregistered from Eureka server")
 	return nil
 }
 
-func main() {
-	logger.Init()
-	defer logger.Log.Sync()
+// CheckReachability performs a TCP reachability check with retries
+func CheckReachability(target string, attempts int, delay time.Duration) error {
+	for i := 1; i <= attempts; i++ {
+		logger.Log.Info("Checking reachability",
+			slog.String("target", target),
+			slog.Int("attempt", i),
+			slog.Int("max_attempts", attempts),
+		)
 
-	// 0. Initialize Configuration and Profiles
-	config.InitProfiles()
+		conn, err := net.DialTimeout("tcp", target, 2*time.Second)
+		if err == nil {
+			conn.Close()
+			logger.Log.Info("Target is reachable", slog.String("target", target))
+			return nil
+		}
 
-	// Optionally load from Spring Cloud Config if specified
-	configURL := getEnv("CONFIG_SERVER_URL", "")
-	if configURL != "" {
-		if err := config.LoadConfig(configURL); err != nil {
-			logger.Log.Warn("Failed to load external configuration", zap.Error(err))
+		if i < attempts {
+			time.Sleep(delay)
 		}
 	}
 
-	// Eureka Configuration
-	eurekaConfig := getEurekaConfig()
-	if err := registerWithEureka(eurekaConfig); err != nil {
-		logger.Log.Error("Failed to register with Eureka", zap.Error(err))
-	} else {
-		go sendHeartbeat(eurekaConfig)
+	return fmt.Errorf("FATAL: Target %s unreachable after %d attempts", target, attempts)
+}
+
+func main() {
+	// 0. Load local .env if present
+	_ = godotenv.Load()
+
+	// 1. Initialize Profile
+	profile := config.GetProfile()
+
+	// 2. Initialize Logger
+	logger.Init(profile)
+
+	logger.Log.Info("🚀 Starting Fargate Server", slog.String("profile", profile))
+
+	// 3. Load External Config (if any)
+	configURL := getEnv("CONFIG_SERVER_URL", "")
+	if configURL != "" {
+		if err := config.LoadConfig(configURL); err != nil {
+			logger.Log.Warn("Failed to load external configuration", slog.Any("error", err))
+		}
 	}
 
-	// Initialize NATS Handler
-	natsURL := getEnv("NATS_URL", "nats://localhost:4222")
+	// 4. Reachability Check for NATS
+	natsURLStr := getEnv("NATS_URL", "nats://localhost:4222")
+	parsedURL, err := url.Parse(natsURLStr)
+	if err != nil {
+		logger.Log.Error("Failed to parse NATS_URL", slog.String("url", natsURLStr), slog.Any("error", err))
+		os.Exit(1)
+	}
+	natsHost := parsedURL.Host
+	if !strings.Contains(natsHost, ":") {
+		natsHost += ":4222"
+	}
+
+	if err := CheckReachability(natsHost, 5, 2*time.Second); err != nil {
+		logger.Log.Error("NATS service unreachable", slog.String("target", natsHost), slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	// 5. Initialize NATS Handler
 	natsUser := getEnv("NATS_USERNAME", "auth-server")
 	natsPass := getEnv("NATS_PASSWORD", "auth-secret")
 
-	natsHandler, err := events.NewNATSHandler(natsURL, natsUser, natsPass)
+	natsHandler, err := events.NewNATSHandler(natsURLStr, natsUser, natsPass, profile)
 	if err != nil {
-		logger.Log.Fatal("Failed to initialize NATS", zap.Error(err))
+		logger.Log.Error("Failed to initialize NATS", slog.Any("error", err))
+		os.Exit(1)
 	}
 	defer natsHandler.Close()
 
-	// Subscribe to tasks
-	err = natsHandler.SubscribeTasks("tasks.run", func(inv models.NATSInvocation, callback func(status, msg string, result *models.NATSResponse)) (string, string, int, error) {
+	// 6. Subscribe to tasks (dynamic subject handled in natsHandler)
+	err = natsHandler.SubscribeTasks(func(inv models.NATSInvocation, callback func(status, msg string, result *models.NATSResponse)) (string, string, int, error) {
 		timeout := 300 * 1000
-		logger.Log.Info("Starting Task", zap.String("task_id", inv.TaskID), zap.Int("timeout_ms", timeout))
+		logger.Log.Info("Starting Task", slog.String("task_id", inv.TaskID), slog.Int("timeout_ms", timeout))
 		if inv.TimeoutMS > 0 {
 			timeout = inv.TimeoutMS
 		}
@@ -210,11 +250,25 @@ func main() {
 	})
 
 	if err != nil {
-		logger.Log.Fatal("Failed to subscribe to tasks", zap.Error(err))
+		logger.Log.Error("Failed to subscribe to tasks", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	// 7. Eureka Registration
+	eurekaConfig := getEurekaConfig()
+	if err := registerWithEureka(eurekaConfig); err != nil {
+		logger.Log.Error("Failed to register with Eureka", slog.Any("error", err))
+	} else {
+		go sendHeartbeat(eurekaConfig)
 	}
 
 	// Initialize Gin
-	r := gin.Default()
+	gin.SetMode(gin.ReleaseMode)
+	if profile == "dev" {
+		gin.SetMode(gin.DebugMode)
+	}
+	r := gin.New()
+	r.Use(gin.Recovery())
 
 	// Routes
 	r.POST("/api/v1/fargate/tasks", func(c *gin.Context) {
@@ -225,14 +279,17 @@ func main() {
 	})
 
 	// Graceful shutdown
+	port := getEnvInt("SERVER_PORT", 8086)
 	srv := &http.Server{
-		Addr:    ":8086",
+		Addr:    fmt.Sprintf(":%d", port),
 		Handler: r,
 	}
 
 	go func() {
+		logger.Log.Info("Listening", slog.Int("port", port))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Log.Fatal("listen: ", zap.Error(err))
+			logger.Log.Error("listen", slog.Any("error", err))
+			os.Exit(1)
 		}
 	}()
 
@@ -245,13 +302,13 @@ func main() {
 
 	// Deregister from Eureka
 	if err := deregisterFromEureka(eurekaConfig); err != nil {
-		logger.Log.Error("Failed to deregister from Eureka", zap.Error(err))
+		logger.Log.Error("Failed to deregister from Eureka", slog.Any("error", err))
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		logger.Log.Fatal("Server forced to shutdown:", zap.Error(err))
+		logger.Log.Error("Server forced to shutdown", slog.Any("error", err))
 	}
 
 	logger.Log.Info("Server exiting")
