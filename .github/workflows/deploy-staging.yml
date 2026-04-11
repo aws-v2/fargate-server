@@ -44,12 +44,12 @@ jobs:
           username: ${{ secrets.STAGING_USERNAME }}
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
-            docker network create aws_backend || true
+            docker network create aws-staging-network || true
             docker pull qarani/fargate-server:staging
             docker stop fargate-server-staging || true
             docker rm fargate-server-staging || true
             docker run -d --name fargate-server-staging \
-              --network aws_backend \
+              --network aws-staging-network \
               -p 8086:8086 \
               -e APP_PROFILE=staging \
               -e SERVER_PORT=8086 \
