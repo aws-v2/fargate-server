@@ -56,5 +56,5 @@ jobs:
               -e NATS_URL=nats://nats-staging:4222 \
               -e NATS_USERNAME=auth-server \
               -e NATS_PASSWORD=auth-secret \
-              -e EUREKA_SERVER_URL=http://eureka-staging:8761/eureka \
+              -e EUREKA_SERVER_URL=http://discovery-server-staging:8761/eureka \
               qarani/fargate-server:staging
