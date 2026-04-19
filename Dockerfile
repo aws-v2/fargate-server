@@ -31,7 +31,7 @@ RUN apk --no-cache add ca-certificates
 
 # Copy the binary from the builder stage
 COPY --from=builder /app/mini-fargate .
-
+COPY --from=builder /app/docs ./docs
 # Use non-root user
 USER appuser
 
