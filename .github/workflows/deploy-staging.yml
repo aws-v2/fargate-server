@@ -49,13 +49,17 @@ jobs:
             docker stop fargate-server-staging || true
             docker rm fargate-server-staging || true
             docker run -d --name fargate-server-staging \
-              --network aws-staging-network \
-              -p 8086:8086 \
-              -e APP_PROFILE=staging \
-              -e SERVER_PORT=8086 \
-              -e DOCS_PATH=/app/docs \
-              -e NATS_URL=nats://nats-staging:4222 \
-              -e NATS_USERNAME=nats-staging-user \
-              -e NATS_PASSWORD=nats-staging-password \
-              -e EUREKA_SERVER_URL=http://discovery-server-staging:8761/eureka \
-              qarani/fargate-server:staging
+            --network aws-staging-network \
+            -p 8086:8086 \
+            -e APP_PROFILE=staging \
+            -e SERVER_PORT=8086 \
+            -e DOCS_PATH=/app/docs \
+            -e NATS_URL=nats://nats-staging:4222 \
+            -e NATS_USERNAME=nats-staging-user \
+            -e NATS_PASSWORD=nats-staging-password \
+            -e EUREKA_SERVER_URL=http://discovery-server-staging:8761/eureka \
+            -e EUREKA_HOSTNAME=fargate-server-staging \
+            -e EUREKA_IP_ADDR=fargate-server-staging \
+            -e EUREKA_INSTANCE_ID=fargate-server-staging:8086 \
+            -e EUREKA_VIP_ADDRESS=fargate-service \
+            qarani/fargate-server:staging
