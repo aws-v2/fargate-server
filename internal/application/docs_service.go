@@ -67,22 +67,26 @@ func NewDocsService(basePath string) *DocsService {
 // GetManifest loads manifest.json from public/internal folder
 func (s *DocsService) GetManifest(internal bool) (*DocManifest, error) {
 	scope := s.getScope(internal)
-
 	path := filepath.Join(s.basePath, scope, "manifest.json")
+
+	// Log the resolved path — helps debug container vs dev mismatches
+	fmt.Printf("[DocsService] reading manifest: %s\n", path)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read manifest: %w", err)
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("manifest not found at %q — check DOCS_PATH and folder structure", path)
+		}
+		return nil, fmt.Errorf("failed to read manifest at %q: %w", path, err)
 	}
 
 	var manifest DocManifest
 	if err := json.Unmarshal(data, &manifest); err != nil {
-		return nil, fmt.Errorf("invalid manifest: %w", err)
+		return nil, fmt.Errorf("invalid manifest JSON at %q: %w", path, err)
 	}
 
 	return &manifest, nil
 }
-
 // GetDoc loads a markdown file and parses frontmatter
 func (s *DocsService) GetDoc(slug string, internal bool) (*DocResponse, error) {
 	if !isValidSlug(slug) {
