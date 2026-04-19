@@ -3,7 +3,7 @@
   "version": "V1",
   "categories": [
     {
-      "title": "Getting Started",
+      "title": "Getting Started..",
       "items": [
         { "title": "Fargate Overview", "slug": "gamelift-overview" },
         { "title": "Quickstart", "slug": "gamelift-quickstart" }
