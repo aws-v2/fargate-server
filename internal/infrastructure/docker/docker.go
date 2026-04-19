@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"mini-fargate/infrastructure/models"
+	"mini-fargate/internal/infrastructure/models"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"

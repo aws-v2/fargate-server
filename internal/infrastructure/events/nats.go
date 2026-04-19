@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"mini-fargate/infrastructure/models"
+	"mini-fargate/internal/infrastructure/models"
 	"mini-fargate/logger"
 
 	"github.com/nats-io/nats.go"

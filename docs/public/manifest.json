@@ -1,0 +1,20 @@
+{
+  "service": "Fargate",
+  "version": "V1",
+  "categories": [
+    {
+      "title": "Getting Started",
+      "items": [
+        { "title": "Fargate Overview", "slug": "gamelift-overview" },
+        { "title": "Quickstart", "slug": "gamelift-quickstart" }
+      ]
+    },
+    {
+      "title": "Core Concepts",
+      "items": [
+        { "title": "Fleets", "slug": "gamelift-fleets" },
+        { "title": "Game Sessions", "slug": "gamelift-game-sessions" }
+      ]
+    }
+  ]
+}

@@ -1,8 +1,8 @@
-package transport
+package services
 
 import (
-	"mini-fargate/infrastructure/docker"
-	"mini-fargate/infrastructure/models"
+	"mini-fargate/internal/infrastructure/docker"
+	"mini-fargate/internal/infrastructure/models"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

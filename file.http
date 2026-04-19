@@ -18,3 +18,34 @@ Authorization: Bearer eysJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3
     "password": "test",
     "confirmPassword": "test"
 }
+
+
+
+
+
+@base = http://localhost:8080/api/v1/billing
+
+### Public Manifest
+GET {{base}}/docs
+
+### Public Doc by slug
+GET {{base}}/docs/getting-started
+
+### Internal Manifest
+GET {{base}}/internal/docs
+
+### Internal Doc by slug
+GET {{base}}/internal/docs/getting-started
+
+### Create Invoice
+POST {{base}}/invoices
+Content-Type: application/json
+
+{
+  "tenant_id": "tenant-123",
+  "amount": 250.00,
+  "due_date": "2026-05-01T00:00:00Z"
+}
+
+### Health
+GET http://localhost:8080/health
