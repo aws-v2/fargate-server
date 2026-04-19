@@ -52,7 +52,12 @@ type DocsService struct {
 }
 
 func NewDocsService(basePath string) *DocsService {
+
+	if _, err := os.Stat(basePath); os.IsNotExist(err) {
+		panic(fmt.Sprintf("docs directory not found at %q — check DOCS_PATH env or Dockerfile COPY", basePath))
+	}
 	return &DocsService{basePath: basePath}
+
 }
 
 // =====================
