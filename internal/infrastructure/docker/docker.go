@@ -18,7 +18,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
-	"go.uber.org/zap"
 
 	"mini-fargate/logger"
 )
@@ -73,7 +72,7 @@ type TaskStatusCallback func(status, message string, result *models.NATSResponse
 func RunLambdaContainer(ctx context.Context, inv models.NATSInvocation, callback TaskStatusCallback) (string, string, int, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		logger.Log.Error("Error creating docker client", zap.Error(err))
+		logger.Log.Error("Error creating docker client", "error", err)
 		return "", "", -1, err
 	}
 	defer cli.Close()
@@ -90,7 +89,7 @@ func RunLambdaContainer(ctx context.Context, inv models.NATSInvocation, callback
 
 		reader, err := cli.ImagePull(ctx, imageName, image.PullOptions{})
 		if err != nil {
-			logger.Log.Error("Error pulling image", zap.String("image", imageName), zap.Error(err))
+			logger.Log.Error("Error pulling image", "image", imageName, "error", err)
 			return "", "", -1, fmt.Errorf("failed to pull image: %w", err)
 		}
 		defer reader.Close()
@@ -138,15 +137,11 @@ func RunLambdaContainer(ctx context.Context, inv models.NATSInvocation, callback
 	if len(inv.Execution.Command) > 0 {
 		cmd = inv.Execution.Command
 		if inv.Execution.Kind == "binary" {
-			// Even with explicit command, if it's a binary with path, we need to ensure chmod +x
-			// This is critical for Windows mounts.
 			binPath := cmd[0]
 			args := ""
 			if len(cmd) > 1 {
 				args = " " + strings.Join(cmd[1:], " ")
 			}
-			// Robust check: if binPath is relative (like ./handler), and we are in a directory mount, it works.
-			// If it's a file mount, we need to copy /var/task itself.
 			cmd = []string{"sh", "-c", fmt.Sprintf(`
 				if [ -d /var/task ]; then
 					cp /var/task/%s /tmp/executor
@@ -156,7 +151,7 @@ func RunLambdaContainer(ctx context.Context, inv models.NATSInvocation, callback
 				chmod +x /tmp/executor
 				/tmp/executor%s`, strings.TrimPrefix(binPath, "./"), args)}
 		}
-		logger.Log.Info("Using explicit command", zap.String("task_id", inv.TaskID), zap.Strings("cmd", cmd))
+		logger.Log.Info("Using explicit command", "task_id", inv.TaskID, "cmd", cmd)
 	} else {
 		// 2. Legacy/Fallback Logic: Infer based on Kind or Image
 		executionKind := inv.Execution.Kind
@@ -171,31 +166,24 @@ func RunLambdaContainer(ctx context.Context, inv models.NATSInvocation, callback
 		}
 
 		logger.Log.Info("Inferred Execution Kind",
-			zap.String("task_id", inv.TaskID),
-			zap.String("kind", inv.Execution.Kind),
-			zap.String("inferred", executionKind),
-			zap.String("image", imageName),
+			"task_id", inv.TaskID,
+			"kind", inv.Execution.Kind,
+			"inferred", executionKind,
+			"image", imageName,
 		)
 
 		switch executionKind {
 		case "image":
-			// Pure Docker Image: use the image's default CMD/ENTRYPOINT
 			cmd = nil
 		case "binary":
-			// Copy to /tmp to handle Windows mount permissions (chmod +x)
 			cmd = []string{"sh", "-c", "if [ -d /var/task ]; then if [ -f /var/task/handler ]; then cp /var/task/handler /tmp/executor; elif [ -f /var/task/bootstrap ]; then cp /var/task/bootstrap /tmp/executor; else echo 'Error: /var/task is a directory but no handler or bootstrap found'; ls -la /var/task; exit 1; fi; else cp /var/task /tmp/executor; fi && chmod +x /tmp/executor && /tmp/executor"}
 		case "node", "nodejs":
-			// Node checks for multiple potential entry files
 			cmd = []string{"sh", "-c", "if [ -d /var/task ]; then if [ -f /var/task/index.js ]; then node /var/task/index.js; elif [ -f /var/task/handler.js ]; then node /var/task/handler.js; elif [ -f /var/task/handler ]; then node /var/task/handler; else echo 'Error: /var/task is a directory but no index.js, handler.js or handler found'; ls -la /var/task; exit 1; fi; else node /var/task; fi"}
 		case "java":
-			// Java looks for a JAR file
-			// Check if /var/task is a directory or a file
 			cmd = []string{"sh", "-c", "if [ -d /var/task ]; then JAR=$(ls /var/task/*.jar | head -n 1); if [ -n \"$JAR\" ]; then java -jar \"$JAR\"; else echo 'Error: No .jar file found in /var/task'; ls -la /var/task; exit 1; fi; else cp /var/task /tmp/function.jar && java -jar /tmp/function.jar; fi"}
 		case "python":
-			// Python looks for main.py, app.py, or lambda_function.py
 			cmd = []string{"sh", "-c", "if [ -d /var/task ]; then if [ -f /var/task/main.py ]; then python /var/task/main.py; elif [ -f /var/task/app.py ]; then python /var/task/app.py; elif [ -f /var/task/lambda_function.py ]; then python /var/task/lambda_function.py; else echo 'Error: /var/task is a directory but no main.py, app.py or lambda_function.py found'; ls -la /var/task; exit 1; fi; else python /var/task; fi"}
 		default:
-			// Default fallback
 			cmd = []string{"sh", "-c", "if [ -f /var/task ]; then cp /var/task /tmp/executor && chmod +x /tmp/executor && /tmp/executor; else echo 'No executable found at /var/task'; exit 1; fi"}
 		}
 	}
@@ -210,13 +198,13 @@ func RunLambdaContainer(ctx context.Context, inv models.NATSInvocation, callback
 	}, nil, "lambda-"+inv.TaskID)
 
 	if err != nil {
-		logger.Log.Error("Error creating container", zap.Error(err))
+		logger.Log.Error("Error creating container", "error", err)
 		return "", "", -1, err
 	}
 	defer cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{Force: true})
 
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		logger.Log.Error("Error starting container", zap.Error(err))
+		logger.Log.Error("Error starting container", "error", err)
 		return "", "", -1, err
 	}
 
@@ -226,13 +214,13 @@ func RunLambdaContainer(ctx context.Context, inv models.NATSInvocation, callback
 	select {
 	case err := <-errCh:
 		if err != nil {
-			logger.Log.Error("Error waiting for container", zap.Error(err))
+			logger.Log.Error("Error waiting for container", "error", err)
 			return "", "", -1, err
 		}
 	case status := <-statusCh:
 		exitCode = int(status.StatusCode)
 	case <-ctx.Done():
-		logger.Log.Warn("Context cancelled while waiting for container", zap.Error(ctx.Err()))
+		logger.Log.Warn("Context cancelled while waiting for container", "error", ctx.Err())
 		return "", "", -1, ctx.Err()
 	}
 
@@ -243,7 +231,7 @@ func RunLambdaContainer(ctx context.Context, inv models.NATSInvocation, callback
 	}
 	logs, err := cli.ContainerLogs(context.Background(), resp.ID, logOptions)
 	if err != nil {
-		logger.Log.Error("Error fetching logs", zap.Error(err))
+		logger.Log.Error("Error fetching logs", "error", err)
 		return "", "", exitCode, err
 	}
 	defer logs.Close()
@@ -251,10 +239,9 @@ func RunLambdaContainer(ctx context.Context, inv models.NATSInvocation, callback
 	var stdoutBuf, stderrBuf bytes.Buffer
 	_, err = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, logs)
 	if err != nil {
-		logger.Log.Error("Error copying logs", zap.Error(err))
+		logger.Log.Error("Error copying logs", "error", err)
 		return "", "", exitCode, err
 	}
 
-	// Note: task.status.complete is now handled in nats.go to avoid duplication and ensure it has the result.
 	return stdoutBuf.String(), stderrBuf.String(), exitCode, nil
 }

@@ -1,21 +1,62 @@
-name: Dev CI/CD
+name: Dev CI
 
 on:
   push:
-    branches: [ "dev", "develop" ]
-  pull_request:
-    branches: [ "dev", "develop", "main", "staging" ]
+    branches: [ "dev" ]
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.25'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
 
-    - name: Run Tests
-      run: go test ./...
+      - name: Install libvirt dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvirt-dev \
+            libvirt-daemon \
+            pkg-config
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        run: go build ./...
+
+      - name: Run tests
+        run: go test ./... -v
+
+  open-pr-to-staging:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create PR dev → staging
+        run: |
+          if gh pr list --base staging --head dev --state open --json number | jq -e 'length > 0' > /dev/null; then
+            echo "PR already exists. Skipping..."
+          else
+            gh pr create \
+              --base staging \
+              --head dev \
+              --title "chore: promote dev → staging" \
+              --body "✅ All tests passed on dev. Auto-generated PR."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
