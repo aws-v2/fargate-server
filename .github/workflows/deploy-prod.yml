@@ -53,9 +53,9 @@ jobs:
             docker run -d \
               --name fargate-server-prod \
               --network aws-prod-network \
-              -p 8080:8080 \
+              -p 8086:8086 \
               -e APP_PROFILE=prod \
-              -e SERVER_PORT=8080 \
+              -e SERVER_PORT=8086 \
               -e DOCS_PATH=/app/docs \
               -e NATS_URL=nats://nats-prod:4222 \
               -e NATS_USERNAME=nats-prod-user \
