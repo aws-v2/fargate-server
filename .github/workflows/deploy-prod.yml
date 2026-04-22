@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Tailscale
+      - name: Install Tailscale.
         run: |
           curl -fsSL https://tailscale.com/install.sh | sh
           sudo tailscale up --authkey ${{ secrets.TAILSCALE_AUTH_KEY }}
