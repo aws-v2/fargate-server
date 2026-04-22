@@ -41,6 +41,7 @@ func main() {
 
 	// 3. NATS reachability check
 	natsURLStr := utils.GetEnv("NATS_URL", "nats://localhost:4222")
+	natsPrefix :=utils.GetEnv("NATS_PREFIX","dev.v1")
 	parsedURL, err := url.Parse(natsURLStr)
 	if err != nil {
 		logger.Log.Error("Failed to parse NATS_URL", slog.Any("error", err))
@@ -61,6 +62,7 @@ func main() {
 		utils.GetEnv("NATS_USERNAME", "auth-server"),
 		utils.GetEnv("NATS_PASSWORD", "auth-secret"),
 		profile,
+		natsPrefix,
 	)
 	if err != nil {
 		logger.Log.Error("Failed to initialize NATS", slog.Any("error", err))
