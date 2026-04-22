@@ -1,4 +1,4 @@
-name: Prod deployment.
+name: Prod Deployment
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx.
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
@@ -20,12 +20,13 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: qarani/fargate-server:latest
+          tags: qarani/fargate-server:prod
 
   deploy:
     needs: build-and-push
@@ -33,24 +34,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to EC2 via SSH
+      - name: Install Tailscale
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+          sudo tailscale up --authkey ${{ secrets.TAILSCALE_AUTH_KEY }}
+
+      - name: Deploy to Prod via SSH over Tailscale
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            docker pull qarani/fargate-server:latest
-            docker stop fargate-server || true
-            docker rm fargate-server || true
-            docker network create mini-aws-network || true
-            docker run -d --name fargate-server \
-              --network mini-aws-network \
-              -p 8086:8086 \
+            docker network create aws-prod-network || true
+            docker pull qarani/fargate-server:prod
+            docker stop fargate-server-prod || true
+            docker rm fargate-server-prod || true
+            docker run -d \
+              --name fargate-server-prod \
+              --network aws-prod-network \
+              -p 8080:8080 \
               -e APP_PROFILE=prod \
-              -e SERVER_PORT=8086 \
+              -e SERVER_PORT=8080 \
+              -e DOCS_PATH=/app/docs \
               -e NATS_URL=nats://nats-prod:4222 \
               -e NATS_USERNAME=${{ secrets.PROD_NATS_USERNAME }} \
               -e NATS_PASSWORD=${{ secrets.PROD_NATS_PASSWORD }} \
-              -e EUREKA_SERVER_URL=http://eureka-prod:8761/eureka \
-              qarani/fargate-server:latest
+              -e EUREKA_SERVER_URL=http://discovery-server-prod:8761/eureka \
+              -e EUREKA_HOSTNAME=fargate-server-prod \
+              -e EUREKA_IP_ADDR=fargate-server-prod \
+              -e EUREKA_INSTANCE_ID=fargate-server-prod:8080 \
+              -e EUREKA_VIP_ADDRESS=fargate-server \
+              -e NATS_PREFIX=prod.v1 \
+              qarani/fargate-server:prod
+
+
+
+
