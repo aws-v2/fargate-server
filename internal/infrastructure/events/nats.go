@@ -13,9 +13,10 @@ import (
 type NATSHandler struct {
 	nc      *nats.Conn
 	profile string
+	nattsPrefix string
 }
 
-func NewNATSHandler(url, username, password, profile string) (*NATSHandler, error) {
+func NewNATSHandler(url, username, password, profile string, natsPrefix string) (*NATSHandler, error) {
 	opts := []nats.Option{
 		nats.Name("Fargate Server"),
 		nats.MaxReconnects(-1),
@@ -34,17 +35,17 @@ func NewNATSHandler(url, username, password, profile string) (*NATSHandler, erro
 	if err != nil {
 		return nil, err
 	}
-	return &NATSHandler{nc: nc, profile: profile}, nil
+	return &NATSHandler{nc: nc, profile: profile, nattsPrefix: natsPrefix}, nil
 }
 
 // BuildSubject constructs a dynamic NATS subject based on profile
-func (h *NATSHandler) BuildSubject(service, version, domain, action string) string {
-	return fmt.Sprintf("%s.%s.%s.%s.%s", h.profile, service, version, domain, action)
+func (h *NATSHandler) BuildSubject(natsPrefix,service, domain, action string) string {
+	return fmt.Sprintf("%s.%s.%s.%s", h.nattsPrefix, service,  domain, action)
 }
 
 func (h *NATSHandler) SubscribeTasks(runner func(inv models.NATSInvocation, callback func(status, msg string, result *models.NATSResponse)) (string, string, int, error)) error {
 	// Pattern: <profile>.<service>.<version>.<domain>.<action>
-	subject := h.BuildSubject("fargate", "v1", "tasks", "run")
+	subject := h.BuildSubject(h.nattsPrefix,"fargate", "tasks", "run")
 
 	logger.Log.Info("Subscribing to NATS subject", slog.String("subject", subject))
 
