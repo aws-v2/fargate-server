@@ -62,7 +62,7 @@ jobs:
             -e EUREKA_IP_ADDR=fargate-server-staging \
             -e EUREKA_INSTANCE_ID=fargate-server-staging:8086 \
             -e EUREKA_VIP_ADDRESS=fargate-server \
-            -e NATS_PREFIX=staging.v1
+            -e NATS_PREFIX=staging.v1 \
             qarani/fargate-server:staging
 
   open-pr-to-main:
