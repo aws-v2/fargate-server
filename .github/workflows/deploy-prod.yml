@@ -58,8 +58,8 @@ jobs:
               -e SERVER_PORT=8080 \
               -e DOCS_PATH=/app/docs \
               -e NATS_URL=nats://nats-prod:4222 \
-              -e NATS_USERNAME=${{ secrets.PROD_NATS_USERNAME }} \
-              -e NATS_PASSWORD=${{ secrets.PROD_NATS_PASSWORD }} \
+              -e NATS_USERNAME=nats-prod-user \
+              -e NATS_PASSWORD=nats-prod-password \
               -e EUREKA_SERVER_URL=http://discovery-server-prod:8761/eureka \
               -e EUREKA_HOSTNAME=fargate-server-prod \
               -e EUREKA_IP_ADDR=fargate-server-prod \
