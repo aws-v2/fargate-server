@@ -53,6 +53,7 @@ jobs:
             docker run -d \
               --name fargate-server-prod \
               --network aws-prod-network \
+              -v /var/run/docker.sock:/var/run/docker.sock \
               -p 8086:8086 \
               -e APP_PROFILE=prod \
               -e SERVER_PORT=8086 \
