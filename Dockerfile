@@ -20,6 +20,7 @@ RUN adduser -D -u 1000 appuser
 WORKDIR /app
 
 RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add docker-cli
 
 COPY --from=builder /app/mini-fargate .
 COPY --from=builder /app/docs ./docs
