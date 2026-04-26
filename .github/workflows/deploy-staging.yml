@@ -76,7 +76,7 @@ jobs:
             docker pull qarani/fargate-server:staging
             docker stop fargate-server-staging || true
             docker rm fargate-server-staging || true
-            docker run -d --name fargate-service-staging \
+            docker run -d --name fargate-server-staging \
             --network aws-staging-network \
             -p 8086:8086 \
             -e APP_PROFILE=staging \
