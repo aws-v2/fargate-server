@@ -75,26 +75,25 @@ jobs:
             docker network create aws-prod-network || true
             docker pull qarani/fargate-server:prod
             docker stop fargate-server-prod || true
-            docker rm fargate-server-prod || true
-            docker run -d \
+            docker service rm fargate-server-prod || true
+            docker service create \
               --name fargate-server-prod \
               --network aws-prod-network \
-              -v /var/run/docker.sock:/var/run/docker.sock \
-              -p 8086:8086 \
-              -e APP_PROFILE=prod \
-              -e SERVER_PORT=8086 \
-              -e DOCS_PATH=/app/docs \
-              -e NATS_URL=nats://nats-prod:4222 \
-              -e NATS_USERNAME=nats-prod-user \
-              -e NATS_PASSWORD=nats-prod-password \
-              -e EUREKA_SERVER_URL=http://discovery-server-prod:8761/eureka \
-              -e EUREKA_HOSTNAME=fargate-server-prod \
-              -e EUREKA_IP_ADDR=fargate-server-prod \
-              -e EUREKA_INSTANCE_ID=fargate-server-prod:8080 \
-              -e EUREKA_VIP_ADDRESS=fargate-server \
-              -e NATS_PREFIX=prod.v1 \
+              --publish published=8086,target=8086 \
+              --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \
+              --env APP_PROFILE=prod \
+              --env SERVER_PORT=8086 \
+              --env DOCS_PATH=/app/docs \
+              --env NATS_URL=nats://nats-prod:4222 \
+              --env NATS_USERNAME=nats-prod-user \
+              --env NATS_PASSWORD=nats-prod-password \
+              --env NATS_PREFIX=prod.v1 \
+              --env EUREKA_SERVER_URL=http://discovery-server-prod:8761/eureka \
+              --env EUREKA_HOSTNAME=fargate-server-prod \
+              --env EUREKA_IP_ADDR=fargate-server-prod \
+              --env EUREKA_INSTANCE_ID=fargate-server-prod:8080 \
+              --env EUREKA_VIP_ADDRESS=fargate-server \
               qarani/fargate-server:prod
-
 
 
 
