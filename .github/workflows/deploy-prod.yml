@@ -89,10 +89,10 @@ jobs:
               --env NATS_PASSWORD=nats-prod-password \
               --env NATS_PREFIX=prod.v1 \
               --env EUREKA_SERVER_URL=http://discovery-server-prod:8761/eureka \
-              --env EUREKA_HOSTNAME=fargate-server-prod \
-              --env EUREKA_IP_ADDR=fargate-server-prod \
-              --env EUREKA_INSTANCE_ID=fargate-server-prod:8080 \
-              --env EUREKA_VIP_ADDRESS=fargate-server \
+              --env EUREKA_HOSTNAME=fargate-service-prod \
+              --env EUREKA_IP_ADDR=fargate-service-prod \
+              --env EUREKA_INSTANCE_ID=fargate-service-prod:8080 \
+              --env EUREKA_VIP_ADDRESS=fargate-service \
               qarani/fargate-server:prod
 
 
