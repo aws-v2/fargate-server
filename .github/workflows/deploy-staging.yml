@@ -73,10 +73,17 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
             docker network create aws-staging-network || true
+<<<<<<< dev
             docker pull qarani/fargate-service:staging
             docker stop fargate-service-staging || true
             docker rm fargate-service-staging || true
             docker run -d --name fargate-service-staging \
+=======
+            docker pull qarani/fargate-server:staging
+            docker stop fargate-server-staging || true
+            docker rm fargate-server-staging || true
+            docker run -d --name fargate-server-staging \
+>>>>>>> staging
             --network aws-staging-network \
             -p 8086:8086 \
             -e APP_PROFILE=staging \
