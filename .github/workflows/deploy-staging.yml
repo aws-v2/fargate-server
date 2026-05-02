@@ -80,6 +80,7 @@ jobs:
             --network aws-staging-network \
             -p 8086:8086 \
             -e APP_PROFILE=staging \
+            --group-add $(stat -c '%g' /var/run/docker.sock) \
             -e SERVER_PORT=8086 \
             -e DOCS_PATH=/app/docs \
             -e NATS_URL=nats://nats-staging:4222 \
